@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}首页{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">{{ month }} 概览</h4>
+  <a class="btn btn-primary" href="{{ url_for('records.create') }}">+ 记一笔</a>
+</div>
+
+<div id="budget-banner" class="budget-banner mb-4 d-none"></div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card metric-card p-3">
+      <div class="metric-label">本月收入</div>
+      <div class="metric-value text-income">¥ {{ income | money }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card metric-card p-3">
+      <div class="metric-label">本月支出</div>
+      <div class="metric-value text-expense">¥ {{ expense | money }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card metric-card p-3">
+      <div class="metric-label">本月结余</div>
+      <div class="metric-value {{ 'text-income' if balance >= 0 else 'text-expense' }}">¥ {{ balance | money }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0">最近记录</h6>
+    <a class="small" href="{{ url_for('records.index') }}">查看全部 →</a>
+  </div>
+  {% if recent %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>日期</th><th>分类</th><th>备注</th><th class="text-end">金额</th></tr>
+      </thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td>{{ r.record_date }}</td>
+          <td><span class="badge {{ 'bg-success' if r.type == 'income' else 'bg-secondary' }}">{{ r.category.name }}</span></td>
+          <td class="text-muted">{{ r.remark or '—' }}</td>
+          <td class="text-end {{ 'text-income' if r.type == 'income' else 'text-expense' }}">
+            {{ '+' if r.type == 'income' else '-' }}{{ r.amount | money }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    还没有记录，点击右上角“记一笔”开始吧。
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 预算提醒：支出达到预算 80% 时在首页顶部给出醒目提示
+fetch("{{ url_for('stats.api_summary') }}")
+  .then(r => r.json())
+  .then(res => {
+    const d = res.data || {};
+    if (d.budget && d.budget_percent !== null) {
+      const banner = document.getElementById("budget-banner");
+      const over = d.budget_percent >= 100;
+      banner.classList.remove("d-none");
+      banner.classList.toggle("danger", over);
+      banner.innerHTML = over
+        ? `⚠️ 本月支出已超预算：已花 <b>¥${d.expense.toFixed(2)}</b> / 预算 ¥${d.budget.toFixed(2)}（${d.budget_percent}%）`
+        : `本月预算使用 ${d.budget_percent}%（¥${d.expense.toFixed(2)} / ¥${d.budget.toFixed(2)}），注意控制支出。`;
+    }
+  })
+  .catch(() => {});
+</script>
+{% endblock %}
